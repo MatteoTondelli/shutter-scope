@@ -1,21 +1,17 @@
 /*========================================*/
-/* Tutti i valori vengono salvati nella   */
-/* EEPROM, con il potenziomentro vengono  */
-/* modificati ed in seguito salvati       */
-/* premendo il tasto di conferma.         */
-/*                                        */
+/*             ARDUINO PINOUT             */
+/*========================================*/
 /* - A0 --> Battery level.                */
-/* - A1 --> Potentiometer.                */
-/* - D2 --> DHT hum/temp sensor.          */
-/*			Replaced with encoder CLK     */
-/* - D3 --> L293DNE enable.               */
-/*			Replaced with encoder DATA    */
-/* - D4 --> Camera trigger.               */
-/* - D5 --> Push button.                  */
-/* - D6 --> State LED.                    */
+/* - D0 -->                               */
+/* - D1 -->                               */
+/* - D2 --> Encoder CLOCK.                */
+/* - D3 --> Encoder DATA.                 */
+/* - D4 --> Encoder PUSHBUTTON.           */
+/* - D5 --> Buzzer.                       */
+/* - D6 -->                               */
 /* - D7 --> LCD E.                        */
 /* - D8 --> LCD RS.                       */
-/* - D9 --> LCD backlight.                */
+/* - D9 --> LCD backlight ON/OFF.         */
 /* - D10--> LCD DB7.                      */
 /* - D11--> LCD DB6.                      */
 /* - D12--> LCD DB5.                      */
@@ -24,7 +20,6 @@
 
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
-//#include <dht11.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
 #include <avr/wdt.h>
@@ -33,19 +28,13 @@
 /*             DATA MANAGEMENT            */
 /*========================================*/
 
-#define ADDR_SPD    0    //Speed 1 byte (0 - 255).
-#define ADDR_TMR    1    //Delay time 2 byte (0 - 900).
-#define ADDR_HTR    3    //Dew heater mode 1 byte (0 - 255).
+#define ADDR_SPD    0    // Speed 1 byte (0 - 255).
+#define ADDR_TMR    1    // Delay time 2 byte (0 - 900).
 
 struct settings
 {
   int     motorSpeed;
   int     delayTime;
-  char    dewMode;
-  float   humidity;
-  float   temperature;
-  double  dewPoint;
-  double  dewPointFast;
 };
 
 settings userSettings;
@@ -64,22 +53,21 @@ String cameraRunString = "False";
 
 
 void loadEEPROM() {
-  /*Only speed, delay time and heater mode are stored in EEPROM.*/
+  // Only speed, delay time and heater mode are stored in EEPROM.
   userSettings.motorSpeed = EEPROM.read(ADDR_SPD);
   userSettings.delayTime = (EEPROM.read(ADDR_TMR) << 8) | EEPROM.read(ADDR_TMR + 1);
-  userSettings.dewMode = EEPROM.read(ADDR_HTR);
 }
 
 void writeEEPROM(int address, int value) {
-  //EEPROM takes 3.3ms to write a cell.
-  //Timer data requires 2 byte (storing mode: little endian).
+  // EEPROM takes 3.3ms to write a cell.
+  // Timer data requires 2 byte (storing mode: little endian).
   if(address == ADDR_TMR) {
     EEPROM.write(address, highByte(value));
     delay(5);
     EEPROM.write(address + 1, lowByte(value));
     delay(5);
   }else{
-    //Other data requires only 1 byte.
+    // Other data requires only 1 byte.
     EEPROM.write(address, byte(value));
     delay(5);
   }
@@ -90,18 +78,18 @@ void writeEEPROM(int address, int value) {
 /*========================================*/
 
 ISR(WDT_vect) {
-  //Dummy function to avoid microcontroller reset.
+  // Dummy function to avoid microcontroller reset.
 }
 
 void enterSleep(int sleepTime) {
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
   sleep_enable();
   wdt_enable(sleepTime);
-  //Now enter sleep mode.
+  // Now enter sleep mode.
   sleep_mode();
-  //The program will continue from here after the WDT timeout.
+  // The program will continue from here after the WDT timeout.
   wdt_disable();
-  //First thing to do is disable sleep.
+  // First thing to do is disable sleep.
   sleep_disable();
 }
 /*
@@ -328,7 +316,7 @@ void pointerMoveUp() {
   navigateMenu(menu);
 }
 
-//TODO: Ottimizzare...
+// TODO: Optimize...
 void runTimer() {
   while(1) {
     lcd.setCursor(13,1);
@@ -348,8 +336,6 @@ void runTimer() {
     delay(200);
   }
 }
-
-//TODO: LCD auto backlight.
 
 void backlightON() {
     digitalWrite(PIN_BACKLIGHT, HIGH);
@@ -425,81 +411,8 @@ void encoderRead() {
 
 
 
-// /*========================================*/
-// /*            DHT11 MANAGEMENT            */
-// /*========================================*/
-
-// #define PIN_DHT 2
-
-// dht11 DHT11;
-
-// void getWeather() {
-  // //DHT11 takes about 4ms to perform one communication process.
-  // int chk = DHT11.read(PIN_DHT);
-  // lcd.setCursor(11, 0);
-  // switch (chk) {
-    // case 0:
-    // //OK.
-    // lcd.write(byte(S_HEAT));
-    // userSettings.humidity = (float)DHT11.humidity;
-    // userSettings.temperature = (float)DHT11.temperature;
-    // userSettings.dewPoint = dewPoint(DHT11.temperature, DHT11.humidity);
-    // userSettings.dewPointFast = dewPointFast(DHT11.temperature, DHT11.humidity);
-    // break;
-    // case -1:
-    // //Checksum error.
-    // lcd.write(byte(S_CHECKSUM));
-    // break;
-    // case -2:
-    // //Time out error.
-    // lcd.write(byte(S_TIMEOUT));
-    // break;
-    // default:
-    // //Unknown error.
-    // lcd.write(byte(S_ERROR));
-    // break;
-  // }
-// }
-
-// // dewPoint function NOAA
-// // reference: http://wahiduddin.net/calc/density_algorithms.htm 
-// double dewPoint(double celsius, double humidity) {
-  // double A0 = 373.15/(273.15 + celsius);
-  // double SUM = -7.90298 * (A0 - 1);
-  // SUM += 5.02808 * log10(A0);
-  // SUM += -1.3816e-7 * (pow(10, (11.344 * (1 - 1 / A0))) - 1);
-  // SUM += 8.1328e-3 * (pow(10, (-3.49149 * (A0 - 1))) - 1);
-  // SUM += log10(1013.246);
-  // double VP = pow(10, SUM - 3) * humidity;
-  // double T = log(VP / 0.61078);   // temp var
-  // return (241.88 * T) / (17.558 - T);
-// }
-
-// // delta max = 0.6544 wrt dewPoint()
-// // 5x faster than dewPoint()
-// // reference: http://en.wikipedia.org/wiki/Dew_point
-// double dewPointFast(double celsius, double humidity) {
-  // double a = 17.271;
-  // double b = 237.7;
-  // double temp = (a * celsius) / (b + celsius) + log(humidity / 100);
-  // double Td = (b * temp) / (a - temp);
-  // return Td;
-// }
-
 /*========================================*/
-/*           L293DNE MANAGEMENT           */
-/*========================================*/
-
-#define PIN_MOTOR 3
-
-void setMotor(int speed) {
-  if (speed >= 0 && speed <= 255) {
-    analogWrite(PIN_MOTOR, speed);
-  }
-}
-
-/*========================================*/
-/*           CAMERA TRIGGERING            */
+/*            CAMERA TRIGGERING           */
 /*========================================*/
 
 #define PIN_CAMERA  4
@@ -539,10 +452,8 @@ void setup() {
   loadCustomSymbols();
   lcd.begin(16, 2);
   navigateMenu(M_SETTINGS);
-  
+  // Load saved settings.
   loadEEPROM();
-  //TODO: utilizzare la funzione backlightON()
-  digitalWrite(PIN_BCKL, HIGH);
   //setupWDT();
   //http://www.leonardomiliani.com/2013/impariamo-ad-usare-il-watchdog-1/
 }
@@ -576,4 +487,4 @@ void loop() {
   // delay(250);
 }
 
-//Ricordarsi AREF!!!
+// Remeber AREF!!!
