@@ -28,3 +28,4 @@ fp-info-cache
 # Arduino files
 *.hex
 *.json
+*.elf
