@@ -14,8 +14,8 @@ I suggest you to use the ready-made board; otherwise, if you want to build it on
 - Rotary encoder with embedded pushbutton.
 - 28BYJ-48 Stepper motor with ULN2003 driver board.
 - Optocupler.
-- 4x 10k$\Omega$ resistor.
-- 1x 330$\Omega$ resistor.
+- 4x 10k resistor.
+- 1x 330 resistor.
 - 1x 2N3904 transistor (any equivalent NPN is ok).
 - Generic buzzer (optional).
 
